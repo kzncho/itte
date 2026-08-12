@@ -1,0 +1,11 @@
+{
+  "name": "次の一手クイズ",
+  "short_name": "次の一手",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f5f0e6",
+  "theme_color": "#b3452e",
+  "icons": [
+    {"src": "icon.png", "sizes": "180x180", "type": "image/png"}
+  ]
+}

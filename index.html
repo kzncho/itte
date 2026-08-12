@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>次の一手クイズ</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="次の一手">
+<meta name="theme-color" content="#b3452e">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+<style>
+  :root {
+    --board-bg: #f0c987;
+    --board-line: #6b4a26;
+    --sente-color: #1a1a1a;
+    --gote-color: #1a1a1a;
+    --accent: #b3452e;
+    --ok: #2f7d3c;
+    --ng: #b3452e;
+  }
+  body {
+    font-family: "Yu Gothic", "Hiragino Sans", sans-serif;
+    background: #f5f0e6;
+    margin: 0;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #2b2b2b;
+  }
+  h1 { font-size: 20px; margin: 0 0 12px; }
+  #meta {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 10px;
+    text-align: center;
+  }
+  #score {
+    font-size: 15px;
+    margin-bottom: 14px;
+    font-weight: bold;
+  }
+  #handTop, #handBottom {
+    display: flex;
+    gap: 6px;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    margin: 4px 0;
+  }
+  .hand-piece {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    border: 1px solid #b08c4f;
+    border-radius: 6px;
+    background: #fdf6e3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .hand-piece.disabled { opacity: 0.25; cursor: default; }
+  .hand-piece.selected { outline: 3px solid var(--accent); background: #ffe9c7; }
+  .hand-piece .count {
+    position: absolute;
+    bottom: -6px;
+    right: -6px;
+    background: var(--accent);
+    color: white;
+    font-size: 11px;
+    border-radius: 8px;
+    padding: 0 5px;
+    line-height: 16px;
+  }
+  #board {
+    border-collapse: collapse;
+    background: var(--board-bg);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+  }
+  #board td {
+    width: 44px;
+    height: 48px;
+    border: 1px solid var(--board-line);
+    text-align: center;
+    vertical-align: middle;
+    font-size: 22px;
+    cursor: pointer;
+    position: relative;
+    user-select: none;
+  }
+  #board td.selected { background: #ffe08a; }
+  #board td.empty:hover { background: #ffefc7; }
+  .piece { display: inline-block; }
+  .piece.gote { transform: rotate(180deg); }
+  .piece.sente { color: var(--sente-color); }
+  .piece.gote-color { color: var(--gote-color); }
+  #turnLabel {
+    margin-top: 8px;
+    font-size: 14px;
+    font-weight: bold;
+  }
+  #controls {
+    margin-top: 16px;
+    display: flex;
+    gap: 10px;
+  }
+  button {
+    font-size: 14px;
+    padding: 8px 18px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    background: var(--accent);
+    color: white;
+  }
+  button.secondary { background: #888; }
+  button:disabled { background: #ccc; cursor: default; }
+  #result {
+    margin-top: 14px;
+    font-size: 16px;
+    font-weight: bold;
+    min-height: 24px;
+  }
+  #result.ok { color: var(--ok); }
+  #result.ng { color: var(--ng); }
+  #promoteDialog {
+    display: none;
+    margin-top: 10px;
+    background: #fff8ea;
+    border: 1px solid #d8b876;
+    border-radius: 8px;
+    padding: 10px 16px;
+    text-align: center;
+  }
+  #promoteDialog button { margin: 0 6px; }
+  #source {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #888;
+  }
+  #resultsScreen {
+    text-align: center;
+    background: #fff8ea;
+    border: 1px solid #d8b876;
+    border-radius: 10px;
+    padding: 20px 26px;
+    margin-top: 10px;
+  }
+  #resultsTitle { margin: 0 0 8px; font-size: 22px; }
+  #resultsDetail { margin: 0 0 14px; font-size: 15px; color: #444; }
+</style>
+</head>
+<body>
+
+<div id="pinGate" style="position:fixed;inset:0;background:#f5f0e6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:9999;">
+  <h2 style="margin:0;font-size:20px;">次の一手クイズ</h2>
+  <div style="font-size:14px;color:#666;">PINを入力してください</div>
+  <input id="pinInput" type="tel" inputmode="numeric" maxlength="8" autocomplete="off"
+    style="font-size:22px;letter-spacing:6px;text-align:center;width:160px;padding:10px;border:1px solid #b08c4f;border-radius:8px;">
+  <button id="pinSubmit" style="font-size:15px;padding:10px 26px;border-radius:6px;border:none;cursor:pointer;background:#b3452e;color:white;">入る</button>
+  <div id="pinError" style="color:#b3452e;font-size:13px;min-height:18px;"></div>
+</div>
+<script>
+(function() {
+  var PIN_HASH = "627f1364e70a3c6d831b9510d6493ac982ccf1fd3dabac52866395cc9d485eb2";
+  async function sha256(text) {
+    var enc = new TextEncoder().encode(text);
+    var buf = await crypto.subtle.digest('SHA-256', enc);
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  var KEY = 'tsugi_pin_ok_v1';
+  function unlock() { document.getElementById('pinGate').style.display = 'none'; }
+  if (sessionStorage.getItem(KEY) === '1') unlock();
+  document.getElementById('pinSubmit').addEventListener('click', trySubmit);
+  document.getElementById('pinInput').addEventListener('keydown', function(e) { if (e.key === 'Enter') trySubmit(); });
+  async function trySubmit() {
+    var val = document.getElementById('pinInput').value.trim();
+    var hash = await sha256(val);
+    if (hash === PIN_HASH) { sessionStorage.setItem(KEY, '1'); unlock(); }
+    else { document.getElementById('pinError').textContent = 'PINが違います'; document.getElementById('pinInput').value = ''; }
+  }
+})();
+</script>
+
+<h1>次の一手クイズ</h1>
+<div id="meta">盤面の駒をクリック→行き先をクリックで解答します(持ち駒はクリックしてから打つマスをクリック)</div>
+<div id="score">正解 0 / 0</div>
+<div id="handTop"></div>
+<table id="board"></table>
+<div id="handBottom"></div>
+<div id="turnLabel"></div>
+<div id="promoteDialog">
+  成りますか？
+  <button id="promoteYes">成る</button>
+  <button id="promoteNo" class="secondary">成らない</button>
+</div>
+<div id="result"></div>
+<div id="pvSection" style="display:none; margin-top:10px; text-align:center;">
+  <button id="pvShowBtn">正解の読み筋を見る(最大7手)</button>
+  <div id="pvControls" style="display:none; align-items:center; justify-content:center; gap:10px; margin-top:8px;">
+    <button id="pvPrev">◀ 戻す</button>
+    <span id="pvLabel" style="font-size:14px;"></span>
+    <button id="pvNext">進める ▶</button>
+    <button id="pvExit" class="secondary">問題の局面に戻る</button>
+  </div>
+</div>
+<div id="source"></div>
+<div id="controls">
+  <button id="nextBtn">次の問題 →</button>
+  <button id="shuffleBtn" class="secondary">シャッフル</button>
+</div>
+
+<div id="resultsScreen" style="display:none;">
+  <h2 id="resultsTitle"></h2>
+  <p id="resultsDetail"></p>
+  <div id="controls2" style="display:flex; gap:10px; justify-content:center;">
+    <button id="retryWrongBtn">間違えた問題だけ復習する</button>
+    <button id="restartAllBtn" class="secondary">全問もう一度</button>
+  </div>
+</div>
+
+<script>
+const PUZZLES = [{"sfen": "ln1g3nl/5kgs1/p1p1ppb1p/1r1ps4/6P2/2P4R1/PP1PPP2P/1BG1KSG2/LNS4NL w 2P2p 32", "answer": "P*2c", "rate": null, "source": "kezurekokeshi-keizon-20260812_181752.kif 32手目 [後手]", "answerKi2": "△２三歩", "playedUsi": "6d6e", "playedKi2": "△６五歩", "diff": "14.3", "pv": [{"usi": "P*2c", "ki2": "△２三歩", "sfen": "ln1g3nl/5kgs1/p1p1ppbpp/1r1ps4/6P2/2P4R1/PP1PPP2P/1BG1KSG2/LNS4NL b 2Pp 33"}, {"usi": "4h3g", "ki2": "▲３七銀", "sfen": "ln1g3nl/5kgs1/p1p1ppbpp/1r1ps4/6P2/2P4R1/PP1PPPS1P/1BG1K1G2/LNS4NL w 2Pp 34"}]}, {"sfen": "ln1g3nl/5kg2/p1p1pp1sp/1r2sbPp1/3p1N3/2P2Pp2/PP1PP3P/1SG1KSG2/LN5RL w B2P 44", "answer": "5d4e", "rate": null, "source": "kezurekokeshi-keizon-20260812_181752.kif 44手目 [後手]", "answerKi2": "△４五銀", "playedUsi": "2c3d", "playedKi2": "△３四銀", "diff": "19.4", "pv": [{"usi": "5d4e", "ki2": "△４五銀", "sfen": "ln1g3nl/5kg2/p1p1pp1sp/1r3bPp1/3p1s3/2P2Pp2/PP1PP3P/1SG1KSG2/LN5RL b B2Pn 45"}, {"usi": "B*7e", "ki2": "▲７五角", "sfen": "ln1g3nl/5kg2/p1p1pp1sp/1r3bPp1/2Bp1s3/2P2Pp2/PP1PP3P/1SG1KSG2/LN5RL w 2Pn 46"}, {"usi": "8d5d", "ki2": "△５四飛", "sfen": "ln1g3nl/5kg2/p1p1pp1sp/4rbPp1/2Bp1s3/2P2Pp2/PP1PP3P/1SG1KSG2/LN5RL b 2Pn 47"}, {"usi": "4f4e", "ki2": "▲４五歩", "sfen": "ln1g3nl/5kg2/p1p1pp1sp/4rbPp1/2Bp1P3/2P3p2/PP1PP3P/1SG1KSG2/LN5RL w S2Pn 48"}, {"usi": "N*4f", "ki2": "△４六桂", "sfen": "ln1g3nl/5kg2/p1p1pp1sp/4rbPp1/2Bp1P3/2P2np2/PP1PP3P/1SG1KSG2/LN5RL b S2P 49"}, {"usi": "5h6h", "ki2": "▲６八玉", "sfen": "ln1g3nl/5kg2/p1p1pp1sp/4rbPp1/2Bp1P3/2P2np2/PP1PP3P/1SGK1SG2/LN5RL w S2P 50"}, {"usi": "4d8h+", "ki2": "△８八角成", "sfen": "ln1g3nl/5kg2/p1p1pp1sp/4r1Pp1/2Bp1P3/2P2np2/PP1PP3P/1+bGK1SG2/LN5RL b S2Ps 51"}]}, {"sfen": "ln5nl/4gkg2/p1p1pp3/1r2sb1p1/3p1N3/2P1Ps2P/PPSP1P2p/2G1KG3/LN4R1L w BS3Pp 64", "answer": "P*3h", "rate": null, "source": "kezurekokeshi-keizon-20260812_181752.kif 64手目 [後手]", "answerKi2": "△３八歩", "playedUsi": "4f3e", "playedKi2": "△３五銀", "diff": "11.5", "pv": [{"usi": "P*3h", "ki2": "△３八歩", "sfen": "ln5nl/4gkg2/p1p1pp3/1r2sb1p1/3p1N3/2P1Ps2P/PPSP1P2p/2G1KGp2/LN4R1L b BS3P 65"}, {"usi": "3i3h", "ki2": "▲同　飛", "sfen": "ln5nl/4gkg2/p1p1pp3/1r2sb1p1/3p1N3/2P1Ps2P/PPSP1P2p/2G1KGR2/LN6L w BS4P 66"}, {"usi": "5d4e", "ki2": "△４五銀", "sfen": "ln5nl/4gkg2/p1p1pp3/1r3b1p1/3p1s3/2P1Ps2P/PPSP1P2p/2G1KGR2/LN6L b BS4Pn 67"}, {"usi": "4g4f", "ki2": "▲４六歩", "sfen": "ln5nl/4gkg2/p1p1pp3/1r3b1p1/3p1s3/2P1PP2P/PPSP4p/2G1KGR2/LN6L w B2S4Pn 68"}, {"usi": "4e4f", "ki2": "△同　銀", "sfen": "ln5nl/4gkg2/p1p1pp3/1r3b1p1/3p5/2P1Ps2P/PPSP4p/2G1KGR2/LN6L b B2S4Pnp 69"}, {"usi": "3h3f", "ki2": "▲３六飛", "sfen": "ln5nl/4gkg2/p1p1pp3/1r3b1p1/3p5/2P1PsR1P/PPSP4p/2G1KG3/LN6L w B2S4Pnp 70"}, {"usi": "4f3e", "ki2": "△３五銀", "sfen": "ln5nl/4gkg2/p1p1pp3/1r3b1p1/3p2s2/2P1P1R1P/PPSP4p/2G1KG3/LN6L b B2S4Pnp 71"}]}, {"sfen": "ln6l/4gk1g1/p1p1ppnP1/1r2sbSp1/3p1Ns2/2P1P3P/PPSP1P2p/2G1KG3/LN4R1L w BP2p 70", "answer": "5d4e", "rate": null, "source": "kezurekokeshi-keizon-20260812_181752.kif 70手目 [後手]", "answerKi2": "△４五銀", "playedUsi": "2b3b", "playedKi2": "△３二金", "diff": "28.2", "pv": [{"usi": "5d4e", "ki2": "△４五銀", "sfen": "ln6l/4gk1g1/p1p1ppnP1/1r3bSp1/3p1ss2/2P1P3P/PPSP1P2p/2G1KG3/LN4R1L b BPn2p 71"}, {"usi": "3d4e", "ki2": "▲同　銀", "sfen": "ln6l/4gk1g1/p1p1ppnP1/1r3b1p1/3p1Ss2/2P1P3P/PPSP1P2p/2G1KG3/LN4R1L w BSPn2p 72"}]}, {"sfen": "ln6l/4g2B1/p1p1ppkP1/1r2sb1p1/3p2s2/2P1P3P/PPSP1P2p/2G1KG3/LN4R1L w GNPsn2p 76", "answer": "3c4b", "rate": null, "source": "kezurekokeshi-keizon-20260812_181752.kif 76手目 [後手]", "answerKi2": "△４二玉", "playedUsi": "3c2c", "playedKi2": "△２三玉", "diff": "20.3", "pv": [{"usi": "3c4b", "ki2": "△４二玉", "sfen": "ln6l/4gk1B1/p1p1pp1P1/1r2sb1p1/3p2s2/2P1P3P/PPSP1P2p/2G1KG3/LN4R1L b GNPsn2p 77"}, {"usi": "2b4d+", "ki2": "▲４四角成", "sfen": "ln6l/4gk3/p1p1pp1P1/1r2s+B1p1/3p2s2/2P1P3P/PPSP1P2p/2G1KG3/LN4R1L w BGNPsn2p 78"}, {"usi": "3e4d", "ki2": "△同　銀", "sfen": "ln6l/4gk3/p1p1pp1P1/1r2ss1p1/3p5/2P1P3P/PPSP1P2p/2G1KG3/LN4R1L b BGNPbsn2p 79"}, {"usi": "B*3a", "ki2": "▲３一角", "sfen": "ln4B1l/4gk3/p1p1pp1P1/1r2ss1p1/3p5/2P1P3P/PPSP1P2p/2G1KG3/LN4R1L w GNPbsn2p 80"}, {"usi": "4b4a", "ki2": "△４一玉", "sfen": "ln3kB1l/4g4/p1p1pp1P1/1r2ss1p1/3p5/2P1P3P/PPSP1P2p/2G1KG3/LN4R1L b GNPbsn2p 81"}, {"usi": "P*3c", "ki2": "▲３三歩", "sfen": "ln3kB1l/4g4/p1p1ppPP1/1r2ss1p1/3p5/2P1P3P/PPSP1P2p/2G1KG3/LN4R1L w GNbsn2p 82"}, {"usi": "4a5a", "ki2": "△５一玉", "sfen": "ln2k1B1l/4g4/p1p1ppPP1/1r2ss1p1/3p5/2P1P3P/PPSP1P2p/2G1KG3/LN4R1L b GNbsn2p 83"}]}];
+
+let order = PUZZLES.map((_, i) => i);
+let idx = 0;
+let correctCount = 0;
+let answeredCount = 0;
+let wrongIndices = [];  // このパスで間違えた問題の元インデックス(重複なし)
+let selected = null;   // {type:'board', file, rank, ptype, promoted} | {type:'hand', ptype}
+let pendingBaseUsi = null;
+let state = null;      // {board, turn, hands}
+let locked = false;    // 解答後は次の問題までクリック無効
+let pvMode = false;    // 読み筋プレビュー中はfalseにして盤操作を無効化
+let pvIndex = 0;       // 0=出題局面, 1..N=読み筋N手目まで進めた局面
+
+const KANJI = {P:'歩', L:'香', N:'桂', S:'銀', G:'金', B:'角', R:'飛', K:'玉'};
+const KANJI_PROMOTED = {P:'と', L:'成香', N:'成桂', S:'成銀', B:'馬', R:'龍'};
+const HAND_ORDER = ['R','B','G','S','N','L','P'];
+
+function pieceLabel(type, promoted) {
+  if (promoted) return KANJI_PROMOTED[type] || KANJI[type];
+  return KANJI[type];
+}
+
+function rankLetter(rank) { return String.fromCharCode(96 + rank); } // 1->a
+function squareUsi(file, rank) { return '' + file + rankLetter(rank); }
+
+function parseSfen(sfen) {
+  const parts = sfen.split(' ');
+  const boardPart = parts[0], turn = parts[1], handPart = parts[2];
+  const rows = boardPart.split('/');
+  const board = rows.map(row => {
+    const cells = [];
+    let i = 0;
+    while (i < row.length) {
+      const ch = row[i];
+      if (/[0-9]/.test(ch)) {
+        for (let k = 0; k < parseInt(ch, 10); k++) cells.push(null);
+        i++;
+      } else if (ch === '+') {
+        const pch = row[i + 1];
+        cells.push({type: pch.toUpperCase(), owner: pch === pch.toUpperCase() ? 'b' : 'w', promoted: true});
+        i += 2;
+      } else {
+        cells.push({type: ch.toUpperCase(), owner: ch === ch.toUpperCase() ? 'b' : 'w', promoted: false});
+        i++;
+      }
+    }
+    return cells;
+  });
+  const hands = {b: {}, w: {}};
+  if (handPart && handPart !== '-') {
+    let i = 0, numStr = '';
+    while (i < handPart.length) {
+      numStr = '';
+      while (i < handPart.length && /[0-9]/.test(handPart[i])) { numStr += handPart[i]; i++; }
+      const ch = handPart[i]; i++;
+      const count = numStr === '' ? 1 : parseInt(numStr, 10);
+      const owner = ch === ch.toUpperCase() ? 'b' : 'w';
+      hands[owner][ch.toUpperCase()] = count;
+    }
+  }
+  return {board, turn, hands};
+}
+
+function boardAt(file, rank) {
+  // rank 1..9, file 1..9 -> row[rank-1][9-file]
+  return state.board[rank - 1][9 - file];
+}
+
+function clearSelection() {
+  selected = null;
+  document.querySelectorAll('#board td.selected').forEach(td => td.classList.remove('selected'));
+  document.querySelectorAll('.hand-piece.selected').forEach(el => el.classList.remove('selected'));
+}
+
+function drawBoard(sfen, interactive) {
+  state = parseSfen(sfen);
+
+  // 盤
+  const table = document.getElementById('board');
+  table.innerHTML = '';
+  for (let r = 1; r <= 9; r++) {
+    const tr = document.createElement('tr');
+    for (let f = 9; f >= 1; f--) {
+      const td = document.createElement('td');
+      const piece = boardAt(f, r);
+      td.dataset.file = f;
+      td.dataset.rank = r;
+      if (piece) {
+        const span = document.createElement('span');
+        span.className = 'piece ' + (piece.owner === 'w' ? 'gote' : 'sente');
+        span.textContent = pieceLabel(piece.type, piece.promoted);
+        td.appendChild(span);
+      } else {
+        td.classList.add('empty');
+      }
+      if (interactive) {
+        td.addEventListener('click', () => onBoardClick(f, r));
+      }
+      tr.appendChild(td);
+    }
+    table.appendChild(tr);
+  }
+
+  // 持ち駒(後手=上, 先手=下)
+  renderHand('handTop', 'w', interactive);
+  renderHand('handBottom', 'b', interactive);
+}
+
+function render() {
+  document.getElementById('resultsScreen').style.display = 'none';
+  document.getElementById('board').style.display = '';
+  document.getElementById('handTop').style.display = '';
+  document.getElementById('handBottom').style.display = '';
+  document.getElementById('turnLabel').style.display = '';
+  document.getElementById('controls').style.display = 'flex';
+  clearSelection();
+  document.getElementById('promoteDialog').style.display = 'none';
+  document.getElementById('result').textContent = '';
+  document.getElementById('result').className = '';
+  locked = false;
+  pvMode = false;
+  document.getElementById('pvSection').style.display = 'none';
+  document.getElementById('pvControls').style.display = 'none';
+  const puzzle = PUZZLES[order[idx]];
+  drawBoard(puzzle.sfen, true);
+
+  document.getElementById('turnLabel').textContent =
+    (state.turn === 'b' ? '▲先手番' : '△後手番') + '（あなたが手番です。指し手を入力してください）';
+  document.getElementById('source').textContent = puzzle.source ? ('出典: ' + puzzle.source) : '';
+}
+
+function renderHand(elId, owner, interactive) {
+  const el = document.getElementById(elId);
+  el.innerHTML = '';
+  HAND_ORDER.forEach(pt => {
+    const count = (state.hands[owner] && state.hands[owner][pt]) || 0;
+    if (count <= 0) return;
+    const div = document.createElement('div');
+    div.className = 'hand-piece' + (interactive && owner === state.turn ? '' : ' disabled');
+    const span = document.createElement('span');
+    span.className = 'piece ' + (owner === 'w' ? 'gote' : 'sente');
+    span.textContent = KANJI[pt];
+    div.appendChild(span);
+    const cnt = document.createElement('span');
+    cnt.className = 'count';
+    cnt.textContent = count;
+    div.appendChild(cnt);
+    if (interactive && owner === state.turn) {
+      div.addEventListener('click', () => onHandClick(pt, div));
+    }
+    el.appendChild(div);
+  });
+}
+
+function onHandClick(ptype, el) {
+  if (locked || pvMode) return;
+  clearSelection();
+  selected = {type: 'hand', ptype};
+  el.classList.add('selected');
+}
+
+function onBoardClick(file, rank) {
+  if (locked || pvMode) return;
+  const piece = boardAt(file, rank);
+  if (!selected) {
+    if (piece && piece.owner === state.turn) {
+      selected = {type: 'board', file, rank, ptype: piece.type, promoted: piece.promoted};
+      cellEl(file, rank).classList.add('selected');
+    }
+    return;
+  }
+  if (selected.type === 'board' && selected.file === file && selected.rank === rank) {
+    clearSelection();
+    return;
+  }
+  if (piece && piece.owner === state.turn) {
+    clearSelection();
+    selected = {type: 'board', file, rank, ptype: piece.type, promoted: piece.promoted};
+    cellEl(file, rank).classList.add('selected');
+    return;
+  }
+  attemptMove(file, rank, piece);
+}
+
+function cellEl(file, rank) {
+  return document.querySelector(`#board td[data-file="${file}"][data-rank="${rank}"]`);
+}
+
+function attemptMove(toFile, toRank, destPiece) {
+  if (selected.type === 'hand') {
+    if (destPiece) { clearSelection(); return; }
+    const usi = selected.ptype + '*' + squareUsi(toFile, toRank);
+    clearSelection();
+    finalizeAnswer(usi);
+    return;
+  }
+  const {file: fromFile, rank: fromRank, ptype, promoted} = selected;
+  const baseUsi = squareUsi(fromFile, fromRank) + squareUsi(toFile, toRank);
+  clearSelection();
+  if (canPromote(ptype, promoted, state.turn, fromRank, toRank)) {
+    if (isMandatoryPromotion(ptype, state.turn, toRank)) {
+      finalizeAnswer(baseUsi + '+');
+    } else {
+      pendingBaseUsi = baseUsi;
+      document.getElementById('promoteDialog').style.display = 'block';
+    }
+  } else {
+    finalizeAnswer(baseUsi);
+  }
+}
+
+function canPromote(ptype, alreadyPromoted, side, fromRank, toRank) {
+  if (alreadyPromoted) return false;
+  if (!['P', 'L', 'N', 'S', 'B', 'R'].includes(ptype)) return false;
+  const zone = side === 'b' ? [1, 2, 3] : [7, 8, 9];
+  return zone.includes(fromRank) || zone.includes(toRank);
+}
+
+function isMandatoryPromotion(ptype, side, toRank) {
+  if (side === 'b') {
+    if ((ptype === 'P' || ptype === 'L') && toRank === 1) return true;
+    if (ptype === 'N' && toRank <= 2) return true;
+  } else {
+    if ((ptype === 'P' || ptype === 'L') && toRank === 9) return true;
+    if (ptype === 'N' && toRank >= 8) return true;
+  }
+  return false;
+}
+
+document.getElementById('promoteYes').addEventListener('click', () => {
+  document.getElementById('promoteDialog').style.display = 'none';
+  finalizeAnswer(pendingBaseUsi + '+');
+});
+document.getElementById('promoteNo').addEventListener('click', () => {
+  document.getElementById('promoteDialog').style.display = 'none';
+  finalizeAnswer(pendingBaseUsi);
+});
+
+function finalizeAnswer(usiMove) {
+  locked = true;
+  const originalIdx = order[idx];
+  const puzzle = PUZZLES[originalIdx];
+  const isCorrect = usiMove === puzzle.answer;
+  answeredCount++;
+  if (isCorrect) {
+    correctCount++;
+  } else if (!wrongIndices.includes(originalIdx)) {
+    wrongIndices.push(originalIdx);
+  }
+  document.getElementById('score').textContent = `正解 ${correctCount} / ${answeredCount}`;
+  const resultEl = document.getElementById('result');
+  const answerLabel = puzzle.answerKi2 ? `${puzzle.answerKi2}（${puzzle.answer}）` : puzzle.answer;
+  if (isCorrect) {
+    resultEl.textContent = '○ 正解！ ' + answerLabel;
+    resultEl.className = 'ok';
+  } else {
+    const playedLabel = puzzle.playedKi2 ? `${puzzle.playedKi2}（${usiMove}）` : usiMove;
+    resultEl.textContent = '× 不正解… あなたの手: ' + playedLabel + ' / 正解: ' + answerLabel;
+    resultEl.className = 'ng';
+  }
+  const isLast = idx === order.length - 1;
+  document.getElementById('nextBtn').textContent = isLast ? '結果を見る →' : '次の問題 →';
+
+  // 読み筋ボタンの表示
+  const pvSection = document.getElementById('pvSection');
+  if (puzzle.pv && puzzle.pv.length > 0) {
+    pvSection.style.display = 'block';
+    document.getElementById('pvShowBtn').style.display = '';
+    document.getElementById('pvControls').style.display = 'none';
+  } else {
+    pvSection.style.display = 'none';
+  }
+}
+
+function showPv() {
+  const puzzle = PUZZLES[order[idx]];
+  if (!puzzle.pv || puzzle.pv.length === 0) return;
+  pvMode = true;
+  pvIndex = 0;
+  document.getElementById('pvShowBtn').style.display = 'none';
+  document.getElementById('pvControls').style.display = 'flex';
+  renderPvStep();
+}
+
+function renderPvStep() {
+  const puzzle = PUZZLES[order[idx]];
+  const sfen = pvIndex === 0 ? puzzle.sfen : puzzle.pv[pvIndex - 1].sfen;
+  drawBoard(sfen, false);
+  const label = pvIndex === 0
+    ? '(出題局面)'
+    : `${pvIndex}手目: ${puzzle.pv[pvIndex - 1].ki2}`;
+  document.getElementById('pvLabel').textContent = label;
+  document.getElementById('pvPrev').disabled = pvIndex === 0;
+  document.getElementById('pvNext').disabled = pvIndex === puzzle.pv.length;
+}
+
+function exitPvMode() {
+  pvMode = false;
+  document.getElementById('pvControls').style.display = 'none';
+  document.getElementById('pvShowBtn').style.display = '';
+  const puzzle = PUZZLES[order[idx]];
+  drawBoard(puzzle.sfen, true);
+}
+
+document.getElementById('pvShowBtn').addEventListener('click', showPv);
+document.getElementById('pvPrev').addEventListener('click', () => {
+  if (pvIndex > 0) { pvIndex--; renderPvStep(); }
+});
+document.getElementById('pvNext').addEventListener('click', () => {
+  const puzzle = PUZZLES[order[idx]];
+  if (pvIndex < puzzle.pv.length) { pvIndex++; renderPvStep(); }
+});
+document.getElementById('pvExit').addEventListener('click', exitPvMode);
+
+function showResultsScreen() {
+  document.getElementById('board').style.display = 'none';
+  document.getElementById('handTop').style.display = 'none';
+  document.getElementById('handBottom').style.display = 'none';
+  document.getElementById('turnLabel').style.display = 'none';
+  document.getElementById('controls').style.display = 'none';
+  document.getElementById('promoteDialog').style.display = 'none';
+  document.getElementById('result').textContent = '';
+  document.getElementById('source').textContent = '';
+  document.getElementById('pvSection').style.display = 'none';
+  pvMode = false;
+
+  const pct = answeredCount > 0 ? Math.round((correctCount / answeredCount) * 100) : 0;
+  document.getElementById('resultsTitle').textContent = `今回の正答率: ${pct}%（${correctCount} / ${answeredCount}）`;
+  const detail = document.getElementById('resultsDetail');
+  const retryBtn = document.getElementById('retryWrongBtn');
+  if (wrongIndices.length === 0) {
+    detail.textContent = '全問正解でした！';
+    retryBtn.style.display = 'none';
+  } else {
+    detail.textContent = `間違えた問題が ${wrongIndices.length} 問あります。`;
+    retryBtn.textContent = `間違えた問題だけ復習する (${wrongIndices.length}問)`;
+    retryBtn.style.display = '';
+  }
+  document.getElementById('resultsScreen').style.display = 'block';
+}
+
+document.getElementById('nextBtn').addEventListener('click', () => {
+  if (idx < order.length - 1) {
+    idx++;
+    render();
+  } else {
+    showResultsScreen();
+  }
+});
+document.getElementById('shuffleBtn').addEventListener('click', () => {
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  idx = 0;
+  correctCount = 0; answeredCount = 0; wrongIndices = [];
+  document.getElementById('score').textContent = '正解 0 / 0';
+  render();
+});
+document.getElementById('retryWrongBtn').addEventListener('click', () => {
+  order = wrongIndices.slice();
+  idx = 0;
+  correctCount = 0; answeredCount = 0; wrongIndices = [];
+  document.getElementById('score').textContent = '正解 0 / 0';
+  render();
+});
+document.getElementById('restartAllBtn').addEventListener('click', () => {
+  order = PUZZLES.map((_, i) => i);
+  idx = 0;
+  correctCount = 0; answeredCount = 0; wrongIndices = [];
+  document.getElementById('score').textContent = '正解 0 / 0';
+  render();
+});
+
+if (PUZZLES.length === 0) {
+  document.body.innerHTML = '<h1>次の一手クイズ</h1><p>問題がありません。先に puzzle.txt を生成してください。</p>';
+} else {
+  render();
+}
+</script>
+</body>
+</html>
