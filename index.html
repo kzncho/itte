@@ -469,8 +469,8 @@ document.getElementById('selectNoneGamesBtn').addEventListener('click', () => {
   renderGameSelect();
 });
 document.getElementById('startQuizBtn').addEventListener('click', startQuiz);
-document.getElementById('backToGameSelectBtn').addEventListener('click', renderGameSelect);
-document.getElementById('backToGameSelectBtn2').addEventListener('click', renderGameSelect);
+document.getElementById('backToGameSelectBtn').addEventListener('click', () => { renderGameSelect(); loadHistory(); });
+document.getElementById('backToGameSelectBtn2').addEventListener('click', () => { renderGameSelect(); loadHistory(); });
 
 // --- 正答率の推移 ---------------------------------------------------------
 function renderStats() {
@@ -519,11 +519,10 @@ function renderStats() {
 }
 
 document.getElementById('showStatsBtn').addEventListener('click', () => {
-  if (!historyLoaded) {
-    loadHistory().then(renderStats);
-  } else {
-    renderStats();
-  }
+  // ホーム画面アプリはバックグラウンドから戻っても再読み込みされないことがあるため、
+  // 開くたびに必ずFirestoreから最新の履歴を取り直す。
+  renderStats();
+  loadHistory().then(renderStats);
 });
 document.getElementById('statsBackBtn').addEventListener('click', renderGameSelect);
 
