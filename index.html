@@ -49,6 +49,12 @@ if ('serviceWorker' in navigator) {
     margin-bottom: 4px;
     font-weight: bold;
   }
+  #puzzleHistoryInfo {
+    font-size: 11px;
+    color: #866;
+    margin-bottom: 4px;
+    text-align: center;
+  }
   #handTop, #handBottom {
     display: flex;
     gap: 4px;
@@ -296,6 +302,7 @@ if ('serviceWorker' in navigator) {
 <h1 id="quizH1" style="display:none;">次の一手クイズ</h1>
 <div id="meta">駒→行き先の順にタップして解答(持ち駒は先にタップ)</div>
 <div id="score">正解 0 / 0</div>
+<div id="puzzleHistoryInfo"></div>
 <div id="handTop"></div>
 <table id="board"></table>
 <div id="handBottom"></div>
@@ -775,6 +782,7 @@ function render() {
   document.getElementById('score').style.display = '';
   document.getElementById('source').style.display = '';
   document.getElementById('result').style.display = '';
+  document.getElementById('puzzleHistoryInfo').style.display = '';
   document.getElementById('board').style.display = '';
   document.getElementById('handTop').style.display = '';
   document.getElementById('handBottom').style.display = '';
@@ -795,6 +803,22 @@ function render() {
   document.getElementById('turnLabel').textContent =
     (state.turn === 'b' ? '▲先手番' : '△後手番') + '（あなたの手番です）';
   document.getElementById('source').textContent = puzzle.source ? ('出典: ' + puzzle.source) : '';
+  renderPuzzleHistoryInfo(puzzle);
+}
+
+function renderPuzzleHistoryInfo(puzzle) {
+  const el = document.getElementById('puzzleHistoryInfo');
+  const rec = HISTORY[puzzle.id];
+  const hist = rec && rec.history ? rec.history : [];
+  if (!historyLoaded) {
+    el.textContent = '';
+  } else if (hist.length === 0) {
+    el.textContent = 'この問題は初挑戦です';
+  } else {
+    const correct = hist.filter((h) => h.correct).length;
+    const pct = Math.round((correct / hist.length) * 100);
+    el.textContent = `この問題のこれまでの正答率: ${pct}%（${correct}/${hist.length}）`;
+  }
 }
 
 function renderHand(elId, owner, interactive, farSideOwner) {
