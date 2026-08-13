@@ -10,6 +10,11 @@
 <meta name="apple-mobile-web-app-title" content="次の一手">
 <meta name="theme-color" content="#b3452e">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+</script>
 
 <style>
   :root {
@@ -232,7 +237,7 @@
 </div>
 <div id="result"></div>
 <div id="pvSection" style="display:none; margin-top:10px; text-align:center;">
-  <button id="pvShowBtn">正解の読み筋を見る(最大7手)</button>
+  <button id="pvShowBtn">正解の読み筋を見る(最大17手)</button>
   <div id="pvControls" style="display:none; align-items:center; justify-content:center; gap:10px; margin-top:8px;">
     <button id="pvPrev">◀ 戻す</button>
     <span id="pvLabel" style="font-size:14px;"></span>
@@ -480,6 +485,7 @@ function render() {
   document.getElementById('meta').style.display = '';
   document.getElementById('score').style.display = '';
   document.getElementById('source').style.display = '';
+  document.getElementById('result').style.display = '';
   document.getElementById('board').style.display = '';
   document.getElementById('handTop').style.display = '';
   document.getElementById('handBottom').style.display = '';
